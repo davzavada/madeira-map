@@ -1,0 +1,12 @@
+{
+  "name": "Madeira — počasí a webkamery",
+  "short_name": "Madeira",
+  "description": "Tichá mapa Madeiry — počasí a živé webkamery z deseti míst po ostrově.",
+  "icons": [
+    { "src": "apple-touch-icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4efe8",
+  "theme_color": "#c8553d"
+}

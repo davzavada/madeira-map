@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Background -->
+  <rect width="180" height="180" fill="#c8553d"/>
+
+  <!-- Italic serif M -->
+  <text
+    x="90"
+    y="112"
+    text-anchor="middle"
+    font-family="ui-serif, 'New York', 'Iowan Old Style', Georgia, serif"
+    font-style="italic"
+    font-weight="500"
+    font-size="118"
+    fill="#f4efe8"
+    opacity="0.97"
+  >M</text>
+
+  <!-- Atlantic wave -->
+  <path
+    d="M28 138 Q45 128 62 138 Q79 148 96 138 Q113 128 130 138 Q147 148 154 138"
+    fill="none"
+    stroke="#f4efe8"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    opacity="0.45"
+  />
+</svg>
