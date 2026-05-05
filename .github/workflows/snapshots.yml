@@ -1,0 +1,37 @@
+name: webcam snapshots
+
+on:
+  schedule:
+    # GitHub's minimum scheduled-workflow interval is 5 min. We use it so the
+    # Netmadeira-hosted Porto Moniz cam (no live URL we can hit from the
+    # browser) stays as fresh as the cron allows.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write              # we commit captured frames back to the repo
+
+concurrency:
+  group: snapshots
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture frames
+        run: bash tools/snapshot.sh
+
+      - name: Commit & push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snapshots
+          if git diff --cached --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git commit -m "snapshots: $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push

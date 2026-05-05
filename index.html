@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0d1117" />
+<title>Madeira — počasí a webkamery</title>
+<meta name="description" content="Tichá mapa Madeiry — počasí a živé webkamery z deseti míst po ostrově." />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='6' fill='%23c8553d'/%3E%3C/svg%3E" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin="" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="title" aria-label="Název stránky">
+  <h1>Madeira</h1>
+  <button id="view-toggle" class="view-toggle" aria-label="Přepnout mapu / seznam" type="button">
+    <svg class="view-toggle__icon view-toggle__icon--map" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M9 4.5L3.5 6.2v13.3L9 17.8 15 19.5l5.5-1.7V4.5L15 6.2 9 4.5zM9 4.5v13.3M15 6.2v13.3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+    </svg>
+    <svg class="view-toggle__icon view-toggle__icon--list" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  </button>
+</header>
+
+<main id="stack" class="stack">
+  <section id="summary" class="summary glass" aria-live="polite" aria-hidden="true"></section>
+  <section id="tomorrow" class="summary glass" aria-live="polite" aria-hidden="true"></section>
+  <section id="weekly" class="weekly glass" aria-live="polite" aria-hidden="true"></section>
+  <section id="cards" class="cards" aria-live="polite"></section>
+</main>
+
+<div id="map" role="application" aria-label="Mapa Madeiry"></div>
+
+<aside id="panel" class="panel" aria-hidden="true" aria-live="polite">
+  <button class="panel__close" type="button" aria-label="Zavřít">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+  <div class="panel__content"></div>
+</aside>
+
+<footer class="attribution" aria-label="Atribuce mapy">
+  <a href="https://mapy.com/" target="_blank" rel="noopener" aria-label="Mapy.com">
+    <img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com" height="30" />
+  </a>
+  <span>
+    ©
+    <a href="https://api.mapy.com/copyright" target="_blank" rel="noopener">Seznam.cz a.s. a další</a>
+    · počasí <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+  </span>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

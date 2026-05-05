@@ -1,0 +1,1546 @@
+/* ==========================================================================
+   Madeira — weather & webcams
+   Restrained iOS-liquid-glass aesthetic. Type-first, monochrome map UI,
+   one accent colour borrowed from Madeira's volcanic soil.
+   ========================================================================== */
+
+:root {
+  --bg: #f4efe8;            /* warm paper */
+  --bg-tint: #e9e2d6;
+  --ink: #1a1a1c;
+  --ink-soft: #4a4a4e;
+  --ink-faint: #8a8a90;
+  --accent: #2f6fb5;        /* atlantic blue — selection / live indicator */
+  --accent-soft: rgba(47, 111, 181, 0.16);
+  --rain: #2f6fb5;          /* same blue for precipitation values */
+  --rain-soft: rgba(47, 111, 181, 0.18);
+  --line: rgba(26, 26, 28, 0.10);
+
+  --glass-bg: rgba(255, 252, 247, 0.62);
+  --glass-bg-strong: rgba(255, 252, 247, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 -0.5px 0 rgba(0, 0, 0, 0.04) inset,
+    0 12px 36px -12px rgba(20, 14, 6, 0.22),
+    0 2px 8px -2px rgba(20, 14, 6, 0.10);
+
+  --serif: ui-serif, "New York", "Iowan Old Style", "Charter", "Georgia", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0f12;
+    --bg-tint: #14161a;
+    --ink: #ece9e3;
+    --ink-soft: #b6b2ab;
+    --ink-faint: #6e6a63;
+    --accent: #6aa9e0;
+    --accent-soft: rgba(106, 169, 224, 0.22);
+    --rain: #6aa9e0;
+    --rain-soft: rgba(106, 169, 224, 0.22);
+    --line: rgba(255, 255, 255, 0.10);
+
+    --glass-bg: rgba(22, 24, 28, 0.55);
+    --glass-bg-strong: rgba(22, 24, 28, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 -0.5px 0 rgba(0, 0, 0, 0.4) inset,
+      0 14px 40px -10px rgba(0, 0, 0, 0.55),
+      0 2px 10px -2px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  overflow: hidden;
+}
+
+#map {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-tint);
+  z-index: 0;
+}
+
+/* ---------- Title ---------------------------------------------------------- */
+
+.title {
+  position: fixed;
+  top: max(env(safe-area-inset-top, 0px), clamp(18px, 3vw, 32px));
+  left: max(env(safe-area-inset-left, 0px), clamp(18px, 3vw, 32px));
+  z-index: 600;
+  pointer-events: none;
+  max-width: min(380px, calc(100vw - 36px));
+}
+.title h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(34px, 5.4vw, 56px);
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.title p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+  max-width: 32ch;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  .title h1, .title p { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
+}
+
+/* ---------- Summary banner ----------------------------------------------- */
+/* Always-on glass card at the top right with the day's nicest spot and a
+   24 h precipitation comparison across all locations. */
+
+/* Below the title in the upper-left column. Frees the right side of the map
+   for chips and avoids clipping on narrower desktops.
+   Note: `.summary.glass` selector is required so this position wins over
+   the generic `.glass { position: relative }`. */
+.summary.glass {
+  position: fixed;
+  top: calc(max(env(safe-area-inset-top, 0px), 18px) + clamp(56px, 7vw, 78px));
+  left: max(env(safe-area-inset-left, 0px), clamp(18px, 3vw, 32px));
+  width: min(320px, calc(100vw - 36px));
+  z-index: 600;
+  padding: 10px 13px 9px;
+  border-radius: 16px;
+}
+.summary[aria-hidden="true"] { display: none; }
+
+.summary__lead {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+.summary__where {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  margin: 0 2px;
+}
+.summary__sub {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
+}
+
+.summary__chart {
+  display: block;
+  width: 100%;
+  height: 110px;
+  margin-bottom: 6px;
+}
+.summary__temp-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.summary__fill {
+  fill: var(--ink);
+  opacity: 0.06;
+  stroke: none;
+}
+.summary__grid { stroke: var(--line); stroke-width: 0.5; stroke-dasharray: 2 3; }
+.summary__now {
+  stroke: #d24830;     /* red — current-time marker */
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+@media (prefers-color-scheme: dark) {
+  .summary__now { stroke: #ee6b50; }
+}
+.summary__ax {
+  fill: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 7px;
+  text-anchor: middle;
+}
+.summary__ax--y { text-anchor: end; }
+.summary__ax--rain { fill: var(--rain); text-anchor: start; }
+.summary__ax-unit { fill: var(--ink-faint); font-size: 6px; }
+
+.summary__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 10px;
+  border-top: 0.5px solid var(--line);
+}
+.summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 6px;
+  margin: 0 -6px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background-color .14s ease;
+  user-select: none;
+}
+.summary__row:hover { background: rgba(0, 0, 0, 0.04); }
+@media (prefers-color-scheme: dark) {
+  .summary__row:hover { background: rgba(255, 255, 255, 0.06); }
+}
+.summary__row:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+}
+.summary__row--best { color: var(--ink); }
+.summary__row--best .summary__name::before {
+  content: "★ ";
+  color: #e09a2a;
+  font-size: 10px;
+  margin-right: 1px;
+}
+.summary__row--active {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.summary__row--active:hover { background: var(--accent-soft); }
+
+/* ---------- Weekly forecast card ----------------------------------------- */
+
+.weekly.glass {
+  position: fixed;
+  /* sits below the summary card with a 14 px gutter; summary's height is
+     dynamic (chart + list) so we use a generous offset rather than a tight one. */
+  top: calc(max(env(safe-area-inset-top, 0px), 18px) + clamp(56px, 7vw, 78px) + 280px);
+  left: max(env(safe-area-inset-left, 0px), clamp(18px, 3vw, 32px));
+  width: min(320px, calc(100vw - 36px));
+  z-index: 600;
+  padding: 10px 13px 9px;
+  border-radius: 16px;
+}
+.weekly[aria-hidden="true"] { display: none; }
+.weekly__lead {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.weekly__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 0.5px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.weekly__toggle:hover { color: var(--ink); background: rgba(0,0,0,0.04); }
+@media (prefers-color-scheme: dark) {
+  .weekly__toggle:hover { background: rgba(255,255,255,0.06); }
+}
+.weekly__toggle svg { transition: transform .2s ease; }
+.weekly__toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.weekly__sub {
+  font-size: 9px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-family: var(--mono);
+}
+.weekly__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.weekly__row {
+  display: grid;
+  grid-template-columns: 26px 22px 1fr 78px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 0.5px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.weekly__row:first-child { border-top: none; }
+.weekly__day {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.weekly__glyph { color: var(--accent); display: inline-flex; line-height: 0; }
+.weekly__temp {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.weekly__bar {
+  position: relative;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line);
+  order: 2;
+}
+.weekly__bar-fill {
+  position: absolute;
+  top: 0; bottom: 0;
+  border-radius: 999px;
+  /* Thermal gradient for the weekly temperature range — cold blue → warm
+     gold. Independent of the UI accent so the band reads as a thermometer. */
+  background: linear-gradient(to right, #3a7fb8 0%, #c8c0a0 50%, #e09a2a 100%);
+}
+.weekly__lo { color: var(--ink-faint); order: 1; }
+.weekly__hi { color: var(--ink); font-weight: 600; order: 3; }
+.weekly__rain {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--rain);
+  justify-content: flex-end;
+}
+.weekly__rain-bar {
+  position: absolute;
+  left: 0; bottom: -2px;
+  height: 3px;
+  background: var(--rain);
+  opacity: 0.35;
+  border-radius: 999px;
+}
+.weekly__rain-mm small { font-size: 8px; opacity: 0.7; margin-left: 1px; }
+
+/* ---------- Full-week detail (renders inside the panel) ----------------- */
+
+.weekly-detail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.weekly-detail__row {
+  padding: 10px 12px;
+  background: var(--glass-bg);
+  border: 0.5px solid var(--glass-border);
+  border-radius: 12px;
+}
+.weekly-detail__head {
+  display: grid;
+  grid-template-columns: 64px 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.weekly-detail__day {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.weekly-detail__glyph { color: var(--accent); display: inline-flex; line-height: 0; }
+.weekly-detail__label { font-size: 13px; color: var(--ink-soft); }
+.weekly-detail__sun {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+.weekly-detail__bars {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: center;
+}
+.weekly-detail__temp,
+.weekly-detail__rain {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.weekly-detail__temp { grid-template-columns: auto 1fr auto; display: grid; }
+.weekly-detail__bar {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  order: 2;
+}
+.weekly-detail__bar-fill {
+  position: absolute;
+  top: 0; bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(to right, #3a7fb8 0%, #c8c0a0 50%, #e09a2a 100%);
+}
+.weekly-detail__lo { color: var(--ink-faint); order: 1; font-size: 11px; }
+.weekly-detail__hi { color: var(--ink); font-weight: 600; order: 3; font-size: 12px; }
+.weekly-detail__rain {
+  flex: 1;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--rain);
+}
+.weekly-detail__rain-bar {
+  position: absolute;
+  left: 0; bottom: -2px;
+  height: 3px;
+  background: var(--rain);
+  opacity: 0.30;
+  border-radius: 999px;
+}
+.weekly-detail__rain-mm { font-size: 12px; font-weight: 600; }
+.weekly-detail__rain-mm small { font-size: 9px; opacity: 0.7; margin-left: 1px; font-weight: 400; }
+.weekly-detail__pop {
+  font-size: 10px;
+  color: var(--ink-faint);
+  padding-left: 6px;
+  border-left: 0.5px solid var(--line);
+}
+
+@media (max-width: 640px) {
+  .weekly-detail__head { grid-template-columns: 50px 22px 1fr; }
+  .weekly-detail__sun { display: none; }
+  .weekly-detail__bars { grid-template-columns: 1fr; gap: 8px; }
+}
+
+@media (max-width: 640px) {
+  .weekly.glass {
+    /* Below the summary, above the attribution at the bottom of mobile. */
+    top: auto;
+    bottom: calc(max(env(safe-area-inset-bottom, 0px), 8px) + 44px + 200px);
+    right: max(env(safe-area-inset-right, 0px), 8px);
+    left: max(env(safe-area-inset-left, 0px), 8px);
+    width: auto;
+    /* On phone we hide the weekly card by default — the summary already
+       takes plenty of room and the user can pinch the map for chips. */
+    display: none;
+  }
+}
+
+/* ---------- Live stamp variant ------------------------------------------- */
+
+.chip__stamp--live {
+  background: rgba(47, 111, 181, 0.85);
+  text-transform: uppercase;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+}
+.chip__stamp--live::before {
+  content: "";
+  display: inline-block;
+  width: 4px; height: 4px;
+  border-radius: 999px;
+  background: white;
+  margin-right: 4px;
+  vertical-align: middle;
+  animation: rec 1.6s ease-in-out infinite;
+}
+
+/* Detail panel stats row */
+.now__stats--detail {
+  margin: 0 4px 22px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--glass-bg);
+  border: 0.5px solid var(--glass-border);
+}
+.summary__name {
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.summary__mm {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--rain);
+}
+.summary__row--best .summary__mm { color: #e09a2a; }
+.summary__mm small { font-size: 9px; opacity: 0.7; margin-left: 1px; }
+
+/* ---------- Glass surface (shared) ---------------------------------------- */
+
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  overflow: hidden;
+}
+/* Subtle refractive top edge */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7) 30%,
+    rgba(255, 255, 255, 0.7) 70%,
+    transparent);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .glass::before { background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.18) 30%,
+    rgba(255, 255, 255, 0.18) 70%,
+    transparent); }
+}
+
+/* ---------- Map markers — always-visible chips ---------------------------- */
+
+/* Leaflet's divIcon container — neutralise default styling so chip floats freely. */
+.mark {
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: none;            /* the inner .chip captures clicks */
+}
+
+.chip {
+  position: relative;
+  pointer-events: auto;
+  cursor: pointer;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: var(--glass-shadow);
+  font-family: var(--sans);
+  color: var(--ink);
+  overflow: hidden;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  user-select: none;
+}
+.chip::before {                     /* refractive top-edge highlight */
+  content: "";
+  position: absolute; inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.7) 30%, rgba(255,255,255,.7) 70%, transparent);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .chip::before { background: linear-gradient(90deg, transparent, rgba(255,255,255,.18) 30%, rgba(255,255,255,.18) 70%, transparent); }
+}
+.chip:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.7) inset,
+    0 16px 40px -10px rgba(20,14,6,.28),
+    0 2px 10px -2px rgba(20,14,6,.14);
+}
+
+/* Pin: the small dot anchored to the geographic point */
+.chip__pin {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 1px 3px rgba(0,0,0,.4);
+  z-index: 2;
+}
+.chip__pin--mini { left: 6px; top: 50%; transform: translateY(-50%); }
+/* Full chips don't need a separate pin — the chip itself is the marker. */
+.chip--full .chip__pin { display: none; }
+
+/* Dot — primary points only at maximum zoom-out */
+.chip--dot {
+  display: block;
+  width: 12px; height: 12px;
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 1px 3px rgba(0,0,0,.4);
+  cursor: pointer;
+  transition: transform .15s ease, background-color .15s ease;
+}
+.chip--dot:hover {
+  transform: scale(1.25);
+  background: var(--accent);
+}
+
+/* Tiny chip — pill with just temp + glyph + rain (no name) */
+.chip--tiny {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px 0 18px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.chip--tiny .chip__pin--mini { left: 5px; width: 7px; height: 7px; }
+.chip--tiny .chip__rain--mini { font-size: 9px; padding-left: 3px; }
+
+/* Mini chip — always visible, low/wide zoom */
+.chip--mini {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 22px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.chip__name--mini {
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.chip__temp--mini {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+.chip__rain--mini {
+  font-family: var(--mono);
+  color: var(--rain);
+  font-size: 10px;
+  padding-left: 4px;
+  border-left: 0.5px solid var(--line);
+  margin-left: 2px;
+}
+.chip__rain--mini small { font-size: 9px; opacity: 0.7; }
+.chip__glyph { color: var(--accent); display: inline-flex; line-height: 0; }
+
+/* Full chip — webcam fills the whole tile; the meta strip overlays the bottom. */
+.chip--full {
+  width: 176px;
+  height: 99px;                  /* 16:9, matches YouTube thumbnails natively */
+  position: relative;
+  display: block;
+  isolation: isolate;
+}
+.chip__thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #1a1a1c;
+  overflow: hidden;
+  border-radius: inherit;
+}
+/* Leaflet's stylesheet sets `.leaflet-container .leaflet-marker-pane img
+   { width: auto; }` with higher specificity than a single-class selector,
+   which would otherwise leave non-square cam images letterboxed inside the
+   chip. Bump specificity so cover wins on every cam. */
+.leaflet-container .leaflet-marker-pane .chip__thumb img,
+.chip__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.chip__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chip__thumb-none {
+  display: grid;
+  place-items: center;
+  width: 100%; height: 100%;
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.chip__rec {
+  position: absolute;
+  top: 6px; left: 8px;
+  width: 5px; height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2.5px rgba(0,0,0,.22);
+  animation: rec 1.6s ease-in-out infinite;
+}
+.chip__stamp {
+  position: absolute;
+  top: 5px; right: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 3;
+}
+/* Bottom meta strip — overlays the image with a gradient so text is legible
+   regardless of cam contents. */
+.chip__body {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 2;
+  padding: 18px 9px 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  min-width: 0;
+  background: linear-gradient(to top,
+    rgba(0, 0, 0, 0.78),
+    rgba(0, 0, 0, 0.50) 50%,
+    rgba(0, 0, 0, 0.0));
+  border-radius: 0 0 12px 12px;
+  pointer-events: none;
+}
+.chip__name {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.05;
+  color: rgba(255, 255, 255, 0.98);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.chip__glyph { color: rgba(255, 255, 255, 0.95); }
+.chip__temp { color: rgba(255, 255, 255, 1); font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.chip__rain { color: #6aa9e0; font-size: 10px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.chip__rain small { font-size: 9px; opacity: 0.75; }
+
+.chip__loading {
+  display: inline-flex; gap: 3px; align-items: center;
+}
+.chip__loading span {
+  width: 3px; height: 3px;
+  border-radius: 999px;
+  background: var(--ink-faint);
+  animation: dot 1.2s ease-in-out infinite;
+}
+.chip__loading span:nth-child(2) { animation-delay: .15s; }
+.chip__loading span:nth-child(3) { animation-delay: .3s; }
+
+/* "Nice today" — subtle warm glow telling the user this spot has good
+   weather forecast for the day. Designed to read at a glance. */
+.chip--nice {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 0 0 1px rgba(240, 168, 48, 0.55),
+    0 12px 36px -8px rgba(240, 168, 48, 0.35),
+    0 4px 12px -4px rgba(240, 168, 48, 0.25);
+}
+.chip--nice::after {
+  content: "";
+  position: absolute;
+  top: 6px; right: 7px;
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: #f0a830;
+  box-shadow: 0 0 8px rgba(240, 168, 48, 0.7);
+  z-index: 3;
+}
+.chip--full.chip--nice .chip__rec { right: 18px; left: auto; }
+
+/* Micro info-points — appear when zoomed in (≥ z 12). No webcam, no detail. */
+.mark--micro { background: transparent !important; border: 0 !important; }
+.micro {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px 0 6px;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    0 4px 10px -4px rgba(20,14,6,.18);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.micro__glyph { color: var(--accent); display: inline-flex; line-height: 0; }
+.micro__temp { color: var(--ink); font-weight: 600; font-size: 10px; }
+.micro__rain { color: var(--rain); font-size: 9px; padding-left: 2px; border-left: 0.5px solid var(--line); margin-left: 1px; }
+.micro__rain small { font-size: 8px; opacity: 0.7; }
+.micro__loading { display: inline-flex; gap: 2px; }
+.micro__loading span {
+  width: 3px; height: 3px; border-radius: 999px;
+  background: var(--ink-faint);
+  animation: dot 1.2s ease-in-out infinite;
+}
+.micro__loading span:nth-child(2) { animation-delay: 0.15s; }
+.micro__loading span:nth-child(3) { animation-delay: 0.3s; }
+
+/* Active state */
+.mark--active .chip {
+  background: var(--glass-bg-strong);
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+.mark--active .chip__pin { background: var(--accent); }
+
+/* Leaflet zoom control restyled to match */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: var(--glass-shadow) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  margin: 0 clamp(14px, 2vw, 22px) clamp(72px, 8vh, 96px) 0 !important;
+}
+.leaflet-control-zoom a {
+  background: var(--glass-bg-strong) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: var(--ink) !important;
+  border: none !important;
+  border-bottom: 0.5px solid var(--line) !important;
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  font-size: 16px !important;
+}
+.leaflet-control-zoom a:last-child { border-bottom: none !important; }
+.leaflet-control-zoom a:hover { background: var(--bg) !important; color: var(--accent) !important; }
+
+/* ---------- Side panel ---------------------------------------------------- */
+
+.panel {
+  position: fixed;
+  top: clamp(14px, 2vw, 22px);
+  right: clamp(14px, 2vw, 22px);
+  bottom: clamp(60px, 7vh, 80px);
+  width: min(380px, calc(100vw - 28px));
+  z-index: 700;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
+  backdrop-filter: blur(34px) saturate(180%);
+  border: 0.5px solid var(--glass-border);
+  border-radius: 22px;
+  box-shadow: var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(calc(100% + 32px));
+  opacity: 0;
+  transition: transform .42s cubic-bezier(.22,.61,.36,1), opacity .42s ease;
+  pointer-events: none;
+  overflow: hidden;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.75) 30%,
+    rgba(255, 255, 255, 0.75) 70%,
+    transparent);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .panel::before { background: linear-gradient(90deg,
+    transparent, rgba(255,255,255,0.18) 30%, rgba(255,255,255,0.18) 70%, transparent); }
+}
+.panel--open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.panel__close {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 30px; height: 30px;
+  border-radius: 999px;
+  border: 0.5px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: color .15s, background .15s, transform .15s;
+}
+.panel__close:hover { color: var(--accent); transform: scale(1.06); }
+
+.panel__content {
+  padding: 16px 16px 14px;
+  overflow-y: auto;
+  height: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-faint) transparent;
+}
+.panel__content::-webkit-scrollbar { width: 6px; }
+.panel__content::-webkit-scrollbar-thumb { background: var(--ink-faint); border-radius: 3px; opacity: 0.5; }
+.panel__content::-webkit-scrollbar-track { background: transparent; }
+
+.panel__head { margin: 0 4px 10px; }
+.panel__region {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.panel__head-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+.panel__name {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 24px;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.panel__inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.panel__inline-temp {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.panel__inline-label {
+  font-size: 12px;
+  color: var(--ink-soft);
+  letter-spacing: 0.005em;
+}
+
+/* loading dots */
+.panel__loading {
+  margin: 28px auto;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.panel__loading span {
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--ink-faint);
+  animation: dot 1.2s ease-in-out infinite;
+}
+.panel__loading span:nth-child(2) { animation-delay: 0.15s; }
+.panel__loading span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1; transform: translateY(-3px); }
+}
+
+.panel__error {
+  margin: 16px 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+}
+
+/* ---------- Now block (compact) ------------------------------------------ */
+
+.now {
+  padding: 12px 14px 10px;
+  margin-bottom: 10px;
+}
+.now__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--line);
+}
+.now__glyph {
+  color: var(--accent);
+  display: inline-flex;
+  align-self: center;
+}
+.now__temp {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+.now__label {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-soft);
+  letter-spacing: 0.005em;
+}
+.now__stats {
+  margin: 8px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 8px;
+}
+.now__stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.now__stats dt {
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0;
+}
+.now__stats dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+.now__stats dd small { color: var(--ink-faint); font-size: 10px; }
+.now__sun {
+  grid-column: 1 / -1;
+  flex-direction: row !important;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--line);
+}
+
+/* ---------- Forecast strip ------------------------------------------------ */
+
+.forecast {
+  padding: 8px 4px;
+  margin-bottom: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 2px;
+  border-right: 0.5px solid var(--line);
+  text-align: center;
+}
+.day:last-child { border-right: none; }
+.day__name {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--ink-faint);
+}
+.day__glyph { color: var(--accent); }
+.day__pop {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--rain);
+  min-height: 14px;
+}
+.day__range {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+}
+.day__range span { color: var(--ink-faint); }
+
+@keyframes rec {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+/* ---------- Attribution --------------------------------------------------- */
+
+.attribution {
+  position: fixed;
+  bottom: max(env(safe-area-inset-bottom, 0px), clamp(10px, 1.5vw, 18px));
+  right: max(env(safe-area-inset-right, 0px), clamp(14px, 2vw, 22px));
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px 6px 10px;
+  /* Lighter, more transparent — meets Mapy.com's licensing requirement to
+     show the logo without competing for attention with the map content. */
+  background: rgba(255, 255, 255, 0.30);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 0.5px solid rgba(255, 255, 255, 0.30);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 8px -3px rgba(20, 14, 6, 0.10);
+  font-size: 11px;
+  color: var(--ink-soft);
+  max-width: calc(100vw - 28px);
+  opacity: 0.78;
+  transition: opacity .18s ease;
+}
+.attribution:hover { opacity: 1; }
+@media (prefers-color-scheme: dark) {
+  .attribution {
+    background: rgba(20, 22, 26, 0.36);
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+}
+.attribution img {
+  display: block;
+  height: 30px;
+  width: auto;
+}
+.attribution a { color: var(--ink); text-decoration: none; border-bottom: 0.5px solid var(--line); }
+.attribution a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+/* Logo links have no text — drop the underline so they read as a clean badge. */
+.attribution a:has(img) { border-bottom: none; }
+.attribution a:has(img):hover { border-bottom: none; }
+
+/* ---------- Live cam + hourly chart (always visible) --------------------- */
+
+.livecam {
+  margin: 0 0 10px;
+}
+.livecam__frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.7) inset,
+    0 8px 24px -8px rgba(0,0,0,.25);
+  border: 0.5px solid var(--glass-border);
+}
+.livecam__frame iframe,
+.livecam__still {
+  width: 100%; height: 100%;
+  border: 0;
+  display: block;
+  object-fit: cover;
+}
+.livecam__time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-left: 4px;
+}
+.livecam__frame--empty {
+  background: var(--glass-bg);
+  border: 0.5px dashed var(--line);
+}
+.livecam__none {
+  display: grid; place-items: center;
+  height: 100%;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.livecam__caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+}
+.livecam__rec {
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: rec 1.6s ease-in-out infinite;
+  flex: 0 0 7px;
+}
+.livecam__src {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-decoration: none;
+  border-bottom: 0.5px dotted var(--line);
+}
+.livecam__src:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ---------- Hourly chart -------------------------------------------------- */
+
+.hourly { margin-top: 0; }
+.hourly__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px 6px;
+}
+.hourly__head h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.hourly__legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+.leg::before {
+  content: "";
+  display: inline-block;
+  width: 10px; height: 2px;
+  margin-right: 5px;
+  vertical-align: middle;
+  border-radius: 1px;
+}
+.leg--temp::before { background: var(--ink); }
+.leg--rain::before { background: var(--rain); }
+
+.hourly__chart {
+  width: 100%;
+  height: 150px;
+  background: var(--glass-bg);
+  border: 0.5px solid var(--glass-border);
+  border-radius: 12px;
+  display: block;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+.hourly__chart .ax-grid { stroke: var(--line); stroke-width: 0.5; stroke-dasharray: 2 3; }
+.hourly__chart .ax-x, .hourly__chart .ax-y {
+  fill: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+.hourly__chart .ax-y { text-anchor: end; }
+.hourly__chart .ax-x { text-anchor: middle; }
+.hourly__chart .ax-y--rain { fill: var(--rain); text-anchor: start; }
+.hourly__chart .ax-y__unit { fill: var(--ink-faint); font-size: 7px; }
+.hourly__chart .temp-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.hourly__chart .temp-fill {
+  fill: var(--ink);
+  opacity: 0.06;
+}
+.hourly__chart .now-rule {
+  stroke: #d24830;
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+@media (prefers-color-scheme: dark) {
+  .hourly__chart .now-rule { stroke: #ee6b50; }
+}
+
+/* ---------- Mobile -------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  /* === Mobile: list view by default ============================================
+     The page becomes a vertically scrolling stack of cards (summary, weekly,
+     webcam previews). The map is hidden until the user taps the map icon in
+     the top-right of the title bar — `body.view-map` flips the view. */
+
+  body { overflow: auto; }
+
+  .title {
+    position: sticky;
+    top: 0;
+    left: 0; right: 0;
+    z-index: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(env(safe-area-inset-top, 0px), 10px) 14px 10px;
+    background: linear-gradient(to bottom, var(--bg) 70%, color-mix(in srgb, var(--bg) 60%, transparent));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    pointer-events: auto;
+    max-width: none;
+  }
+  .title h1 { font-size: 26px; margin: 0; }
+  .title p { display: none; }
+
+  .view-toggle { display: inline-flex; }
+
+  /* Stack: appears in normal flow; cards are non-fixed on mobile. */
+  .stack { display: flex; flex-direction: column; gap: 14px; padding: 4px 10px 90px; }
+  #map { display: none; }
+
+  .summary.glass,
+  .weekly.glass {
+    position: static !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: auto !important;
+    margin: 0 !important;
+  }
+  .summary__list { grid-template-columns: 1fr 1fr; }
+  .summary__chart { height: 100px; }
+  .summary__lead { font-size: 11px; }
+  .summary__where { font-size: 14px; }
+  .weekly.glass { display: block !important; }   /* override the desktop hide */
+
+  /* Webcam preview cards — full-width tiles users tap to open the panel. */
+  .cards { display: flex; flex-direction: column; gap: 8px; }
+
+  /* Map view (after tapping the toggle) ==================================== */
+  body.view-map { overflow: hidden; }
+  body.view-map .stack { display: none; }
+  body.view-map #map { display: block; position: fixed; inset: 0; }
+  body.view-map .title {
+    position: fixed;
+    background: transparent;
+  }
+
+  /* Smaller chip so 5 of them fit comfortably on an iPhone screen. */
+  .chip--full { width: 100%; height: 100%; }       /* size driven by Leaflet iconSize */
+
+  .panel {
+    top: auto;
+    right: 8px;
+    left: 8px;
+    bottom: 56px;             /* leave room for the attribution chip */
+    width: auto;
+    max-width: none;
+    max-height: 75vh;
+    border-radius: 22px;
+    transform: translateY(calc(100% + 64px));
+  }
+  .panel--open { transform: translateY(0); }
+  .panel--expanded { width: auto; }
+
+  .leaflet-control-zoom { display: none !important; }
+
+  /* Attribution: sticky-style chip in list view (after the cards), proper
+     fixed bottom-center in map view. The Mapy.com logo must remain visible
+     in both modes (their licensing requires it above the map content). */
+  .attribution {
+    bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    padding: 4px 12px 4px 8px;
+    gap: 8px;
+  }
+  body:not(.view-map) .attribution { position: static; transform: none; margin: 12px auto 14px; }
+  .attribution img { height: 30px; }   /* keep mandated min-height */
+  .attribution > span { display: none; }
+
+  .preview { display: none; }           /* no hover on touch — tap opens panel */
+}
+
+/* ---------- View toggle button (visual styling, both modes) -------------- */
+
+.view-toggle {
+  align-items: center;
+  justify-content: center;
+  width: 38px; height: 38px;
+  border-radius: 999px;
+  border: 0.5px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: var(--ink);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: var(--glass-shadow);
+  transition: transform .15s ease, color .15s ease;
+}
+/* Desktop: button hidden — there is only one (map) view there. */
+@media (min-width: 641px) {
+  .view-toggle { display: none; }
+  .cards { display: none; }
+}
+.view-toggle:hover { color: var(--accent); transform: scale(1.04); }
+.view-toggle__icon { display: none; }
+.view-toggle .view-toggle__icon--map { display: block; }
+body.view-map .view-toggle .view-toggle__icon--map { display: none; }
+body.view-map .view-toggle .view-toggle__icon--list { display: block; }
+
+/* ---------- Mobile preview cards (styling, gated by mobile MQ above) ----- */
+
+.card {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.card .card__thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1a1a1c;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, .55) inset,
+    0 8px 22px -10px rgba(20, 14, 6, .25);
+}
+.card .card__thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card__thumb-none {
+  display: grid; place-items: center;
+  width: 100%; height: 100%;
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.card__stamp {
+  position: absolute;
+  top: 8px; right: 10px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.46);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.96);
+}
+.card__stamp--live {
+  background: rgba(47, 111, 181, 0.88);
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.10em;
+}
+.card__stamp--live::before {
+  content: "";
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 999px;
+  background: white;
+  margin-right: 5px;
+  vertical-align: middle;
+  animation: rec 1.6s ease-in-out infinite;
+}
+.card__body {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 22px 12px 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.94);
+  background: linear-gradient(to top,
+    rgba(0, 0, 0, 0.78),
+    rgba(0, 0, 0, 0.50) 50%,
+    rgba(0, 0, 0, 0));
+  border-radius: 0 0 14px 14px;
+  pointer-events: none;
+}
+.card__name {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 500;
+  color: white;
+  flex: 1 1 auto;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.card__glyph { color: rgba(255, 255, 255, 0.95); display: inline-flex; }
+.card__temp { color: white; font-weight: 600; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.card__rain { color: #6aa9e0; font-size: 11px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.card__rain small { font-size: 9px; opacity: 0.75; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
