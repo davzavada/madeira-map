@@ -74,7 +74,6 @@ window.MADEIRA_MICRO_POINTS = [
   // east / interior
   { id: "curral",         name: "Curral das Freiras",lat: 32.7232, lon: -16.9659 },
   { id: "ribeiro-frio",   name: "Ribeiro Frio",      lat: 32.7333, lon: -16.8819 },
-  { id: "santana",        name: "Santana",           lat: 32.8077, lon: -16.8390 },
   { id: "porto-da-cruz",  name: "Porto da Cruz",     lat: 32.7727, lon: -16.8252 },
   { id: "canical",        name: "Caniçal",           lat: 32.7404, lon: -16.7372 },
   // south / west — one point per coastal area, no duplicates within ~5 km

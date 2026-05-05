@@ -490,7 +490,7 @@ body {
 }
 
 /* Detail panel stats row */
-.now__stats--detail {
+.now__stats.now__stats--detail {
   margin: 0 4px 22px;
   padding: 10px 12px;
   border-radius: 12px;
@@ -938,7 +938,7 @@ body {
 .panel__content::-webkit-scrollbar-thumb { background: var(--ink-faint); border-radius: 3px; opacity: 0.5; }
 .panel__content::-webkit-scrollbar-track { background: transparent; }
 
-.panel__head { margin: 0 4px 10px; }
+.panel__head { margin: 0 4px 24px; padding-right: 36px; }
 .panel__region {
   font-size: 10px;
   letter-spacing: 0.14em;
