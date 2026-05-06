@@ -352,9 +352,8 @@
     return idx >= 0 ? idx : 0;
   }
 
-  // Total precipitation for a specific day (mm).
+  // Total precipitation for a specific calendar day (mm).
   function dayRain(wx, dayOffset = 0) {
-    if (dayOffset === 0) return rolling24Rain(wx);
     return wx?.daily?.precipitation_sum?.[todayIdx(wx) + dayOffset] ?? 0;
   }
 
@@ -477,7 +476,7 @@
 
     const activeIsBest = active.loc.id === best.loc.id;
     const subText = (activeIsBest ? "" : escapeHtml(active.loc.name) + " · ")
-      + active.rain.toFixed(1) + " mm srážek za 24 h"
+      + active.rain.toFixed(1) + " mm srážek"
       + (activeT != null ? ` · ${Math.round(activeT)}°` : "");
 
     root.innerHTML = `
@@ -1188,10 +1187,12 @@
 
   function renderHourlyChart(wx) {
     const HOURS = 48;
-    const t = wx.hourly.time.slice(0, HOURS);
-    const temp = wx.hourly.temperature_2m.slice(0, HOURS);
-    const pop = wx.hourly.precipitation_probability.slice(0, HOURS);
-    const precip = wx.hourly.precipitation.slice(0, HOURS);
+    const now = Date.now();
+    const startIdx = Math.max(0, wx.hourly.time.findIndex((ts) => new Date(ts).getTime() >= now));
+    const t = wx.hourly.time.slice(startIdx, startIdx + HOURS);
+    const temp = wx.hourly.temperature_2m.slice(startIdx, startIdx + HOURS);
+    const pop = wx.hourly.precipitation_probability.slice(startIdx, startIdx + HOURS);
+    const precip = wx.hourly.precipitation.slice(startIdx, startIdx + HOURS);
 
     const W = 600, H = 180;
     const padL = 28, padR = 28, padT = 22, padB = 28;
