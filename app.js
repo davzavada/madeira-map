@@ -331,7 +331,7 @@
     if (!wx?.hourly?.time || !wx.daily?.time?.[dayOffset]) {
       return { time: [], precip: [], temp: [], pop: [], nowFrac: -1 };
     }
-    const targetDate = wx.daily.time[dayOffset];   // YYYY-MM-DD
+    const targetDate = wx.daily.time[todayIdx(wx) + dayOffset];   // YYYY-MM-DD
     const startIdx = wx.hourly.time.findIndex((t) => t.startsWith(targetDate));
     if (startIdx < 0) return { time: [], precip: [], temp: [], pop: [], nowFrac: -1 };
     const end = startIdx + 24;
@@ -344,10 +344,18 @@
     };
   }
 
+  // Index of today's calendar date in the daily array.
+  // With past_days=1 the array starts from yesterday, so this is normally 1.
+  function todayIdx(wx) {
+    const today = new Date().toISOString().slice(0, 10);
+    const idx = (wx?.daily?.time ?? []).indexOf(today);
+    return idx >= 0 ? idx : 0;
+  }
+
   // Total precipitation for a specific day (mm).
   function dayRain(wx, dayOffset = 0) {
     if (dayOffset === 0) return rolling24Rain(wx);
-    return wx?.daily?.precipitation_sum?.[dayOffset] ?? 0;
+    return wx?.daily?.precipitation_sum?.[todayIdx(wx) + dayOffset] ?? 0;
   }
 
   // Hourly slice spanning `hours` total, with `pastHours` of those before
@@ -394,7 +402,7 @@
       activeByCard[rootId] = best.loc.id;
     }
     const active = ranked.find((r) => r.loc.id === activeByCard[rootId]);
-    const activeT = active.wx.daily.temperature_2m_max?.[dayOffset];
+    const activeT = active.wx.daily.temperature_2m_max?.[todayIdx(active.wx) + dayOffset];
 
     // For "today" we use a rolling window with 6 h of past data so the red
     // "now" line lands in the middle. For other days we use the calendar
@@ -528,14 +536,16 @@
     const valid = locations.map((l) => weatherCache.get(l.id)).filter((wx) => wx?.daily);
     if (!valid.length) return;
 
-    const totalAvailable = Math.min(7, valid[0].daily.time.length);
+    const ti = todayIdx(valid[0]);
+    const totalAvailable = Math.min(7, valid[0].daily.time.length - ti);
     const visibleCount = Math.min(4, totalAvailable);
 
-    const days = valid[0].daily.time.slice(0, visibleCount).map((iso, i) => {
-      const hi = avg(valid.map((wx) => wx.daily.temperature_2m_max?.[i]).filter(isNum));
-      const lo = avg(valid.map((wx) => wx.daily.temperature_2m_min?.[i]).filter(isNum));
-      const rain = avg(valid.map((wx) => wx.daily.precipitation_sum?.[i]).filter(isNum));
-      const codes = valid.map((wx) => wx.daily.weather_code?.[i]).filter(isNum);
+    const days = valid[0].daily.time.slice(ti, ti + visibleCount).map((iso, i) => {
+      const j = ti + i;
+      const hi = avg(valid.map((wx) => wx.daily.temperature_2m_max?.[j]).filter(isNum));
+      const lo = avg(valid.map((wx) => wx.daily.temperature_2m_min?.[j]).filter(isNum));
+      const rain = avg(valid.map((wx) => wx.daily.precipitation_sum?.[j]).filter(isNum));
+      const codes = valid.map((wx) => wx.daily.weather_code?.[j]).filter(isNum);
       const code = codes.sort((a, b) => codes.filter((c) => c === a).length - codes.filter((c) => c === b).length).pop() ?? 3;
       return { iso, dayLabel: fmtDay(iso, i), hi, lo, rain, kind: wmo(code)[1], label: wmo(code)[0] };
     });
@@ -608,16 +618,18 @@
   }
 
   function renderWeeklyPanel(valid) {
-    const totalAvailable = Math.min(7, valid[0].daily.time.length);
-    const days = valid[0].daily.time.slice(0, totalAvailable).map((iso, i) => {
-      const hi = avg(valid.map((wx) => wx.daily.temperature_2m_max?.[i]).filter(isNum));
-      const lo = avg(valid.map((wx) => wx.daily.temperature_2m_min?.[i]).filter(isNum));
-      const rain = avg(valid.map((wx) => wx.daily.precipitation_sum?.[i]).filter(isNum));
-      const pop = avg(valid.map((wx) => wx.daily.precipitation_probability_max?.[i]).filter(isNum));
-      const codes = valid.map((wx) => wx.daily.weather_code?.[i]).filter(isNum);
+    const ti = todayIdx(valid[0]);
+    const totalAvailable = Math.min(7, valid[0].daily.time.length - ti);
+    const days = valid[0].daily.time.slice(ti, ti + totalAvailable).map((iso, i) => {
+      const j = ti + i;
+      const hi = avg(valid.map((wx) => wx.daily.temperature_2m_max?.[j]).filter(isNum));
+      const lo = avg(valid.map((wx) => wx.daily.temperature_2m_min?.[j]).filter(isNum));
+      const rain = avg(valid.map((wx) => wx.daily.precipitation_sum?.[j]).filter(isNum));
+      const pop = avg(valid.map((wx) => wx.daily.precipitation_probability_max?.[j]).filter(isNum));
+      const codes = valid.map((wx) => wx.daily.weather_code?.[j]).filter(isNum);
       const code = codes.sort((a, b) => codes.filter((c) => c === a).length - codes.filter((c) => c === b).length).pop() ?? 3;
-      const sunrise = valid[0].daily.sunrise?.[i];
-      const sunset = valid[0].daily.sunset?.[i];
+      const sunrise = valid[0].daily.sunrise?.[j];
+      const sunset = valid[0].daily.sunset?.[j];
       return { iso, dayLabel: fmtDay(iso, i), hi, lo, rain, pop, kind: wmo(code)[1], label: wmo(code)[0], sunrise, sunset };
     });
 
@@ -765,17 +777,18 @@
   function computeNiceToday() {
     const wxs = locations.map((l) => weatherCache.get(l.id)).filter(Boolean);
     if (wxs.length < 3) return;
-    const maxT = wxs.map((w) => w.daily.temperature_2m_max?.[0] ?? -99);
-    const popT = wxs.map((w) => w.daily.precipitation_sum?.[0] ?? 0);
+    const maxT = wxs.map((w) => w.daily.temperature_2m_max?.[todayIdx(w)] ?? -99);
+    const popT = wxs.map((w) => w.daily.precipitation_sum?.[todayIdx(w)] ?? 0);
     const popMax = Math.max(...popT, 0.1);
     const tMedian = [...maxT].sort((a, b) => a - b)[Math.floor(maxT.length / 2)];
     niceIds = new Set();
     locations.forEach((loc, i) => {
       const wx = weatherCache.get(loc.id);
       if (!wx) return;
-      const t = wx.daily.temperature_2m_max?.[0] ?? -99;
-      const p = wx.daily.precipitation_sum?.[0] ?? 0;
-      const code = wx.daily.weather_code?.[0] ?? 99;
+      const ti = todayIdx(wx);
+      const t = wx.daily.temperature_2m_max?.[ti] ?? -99;
+      const p = wx.daily.precipitation_sum?.[ti] ?? 0;
+      const code = wx.daily.weather_code?.[ti] ?? 99;
       const dryEnough = p <= popMax * 0.3 || p < 1;
       const warmEnough = t >= tMedian + 0.3;
       const notStormy = code < 95;
@@ -1088,14 +1101,15 @@
     }
     const cur = wx.current;
     const [label, kind] = wmo(cur.weather_code);
-    const days = wx.daily.time.map((iso, i) => ({
+    const ti = todayIdx(wx);
+    const days = wx.daily.time.slice(ti).map((iso, i) => ({
       iso,
       dayLabel: fmtDay(iso, i),
-      hi: Math.round(wx.daily.temperature_2m_max[i]),
-      lo: Math.round(wx.daily.temperature_2m_min[i]),
-      pop: wx.daily.precipitation_probability_max[i] ?? 0,
-      kind: wmo(wx.daily.weather_code[i])[1],
-      label: wmo(wx.daily.weather_code[i])[0]
+      hi: Math.round(wx.daily.temperature_2m_max[ti + i]),
+      lo: Math.round(wx.daily.temperature_2m_min[ti + i]),
+      pop: wx.daily.precipitation_probability_max[ti + i] ?? 0,
+      kind: wmo(wx.daily.weather_code[ti + i])[1],
+      label: wmo(wx.daily.weather_code[ti + i])[0]
     }));
 
     panelContent.innerHTML = `
@@ -1105,7 +1119,7 @@
         <div><dt>${T.feels}</dt><dd>${Math.round(cur.apparent_temperature)}°</dd></div>
         <div><dt>${T.wind}</dt><dd>${Math.round(cur.wind_speed_10m)} <small>${compass(cur.wind_direction_10m)}</small></dd></div>
         <div><dt>${T.rh}</dt><dd>${Math.round(cur.relative_humidity_2m)}%</dd></div>
-        <div><dt>${T.rain}</dt><dd>${(wx.daily.precipitation_sum?.[0] ?? 0).toFixed(1)}<small>mm</small></dd></div>
+        <div><dt>${T.rain}</dt><dd>${(wx.daily.precipitation_sum?.[ti] ?? 0).toFixed(1)}<small>mm</small></dd></div>
       </dl>
 
       <section class="forecast glass">
