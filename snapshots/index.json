@@ -1,15 +1,15 @@
 {
-  "capturedAt": "2026-05-16T21:57:37Z",
+  "capturedAt": "2026-05-16T22:22:27Z",
   "items": {
-    "funchal": { "file": "funchal.jpg", "kind": "yt", "src": "kLsk1pZ5YeY", "capturedAt": "2026-05-16T21:57:37Z" }
+    "funchal": { "file": "funchal.jpg", "kind": "yt", "src": "kLsk1pZ5YeY", "capturedAt": "2026-05-16T22:22:27Z" }
 ,
-    "calheta": { "file": "calheta.jpg", "kind": "yt", "src": "t4x0u0ARLwo", "capturedAt": "2026-05-16T21:57:37Z" }
+    "calheta": { "file": "calheta.jpg", "kind": "yt", "src": "t4x0u0ARLwo", "capturedAt": "2026-05-16T22:22:27Z" }
 ,
-    "porto-moniz": { "file": "porto-moniz.jpg", "kind": "nm", "src": "porto-moniz", "capturedAt": "2026-05-16T21:57:37Z" }
+    "porto-moniz": { "file": "porto-moniz.jpg", "kind": "nm", "src": "porto-moniz", "capturedAt": "2026-05-16T22:22:27Z" }
 ,
-    "seixal": { "file": "seixal.jpg", "kind": "yt", "src": "WwOuI_G5WUI", "capturedAt": "2026-05-16T21:57:37Z" }
+    "seixal": { "file": "seixal.jpg", "kind": "yt", "src": "WwOuI_G5WUI", "capturedAt": "2026-05-16T22:22:27Z" }
 ,
-    "machico": { "file": "machico.jpg", "kind": "yt", "src": "wbGK0x5QZes", "capturedAt": "2026-05-16T21:57:37Z", "stale": true }
+    "machico": { "file": "machico.jpg", "kind": "yt", "src": "wbGK0x5QZes", "capturedAt": "2026-05-16T22:22:27Z" }
 
   }
 }
